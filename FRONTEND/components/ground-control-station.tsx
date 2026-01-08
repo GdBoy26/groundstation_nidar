@@ -75,21 +75,30 @@ export default function GroundControlStation() {
   return (
     <div className="min-h-screen bg-[#0a0a1a] text-white overflow-hidden">
       {/* Header */}
-      <header className="bg-[#1a1a3a] h-14 flex items-center justify-center relative border-b border-[#2a2a5a]">
-        <h1 className="text-xl font-bold tracking-wide text-cyan-100">ASTRA - NIDAR :PHINEAS AND FERB</h1>
-        <div className="absolute right-4 flex items-center gap-2">
-          <div className="w-8 h-6 flex flex-col">
+      <header className="bg-gradient-to-r from-[#1a1a3a] via-[#2a1a4a] to-[#1a2a4a] h-20 flex items-center justify-between px-6 relative border-b-2 border-cyan-500/40 shadow-lg shadow-cyan-500/10 backdrop-blur-sm">
+        <div className="flex items-center gap-4">
+          <div className="w-16 h-12 flex flex-col rounded-lg overflow-hidden shadow-xl border-2 border-cyan-400/30 hover:border-cyan-300/60 transition-all hover:shadow-cyan-400/30">
             <div className="h-1/3 bg-[#FF9933]"></div>
             <div className="h-1/3 bg-white flex items-center justify-center">
-              <div className="w-2 h-2 rounded-full border border-[#000080]"></div>
+              <div className="w-3.5 h-3.5 rounded-full border-2 border-[#000080] shadow-sm"></div>
             </div>
             <div className="h-1/3 bg-[#138808]"></div>
           </div>
+          <div className="h-14 w-1 bg-gradient-to-b from-transparent via-cyan-500/50 to-transparent rounded-full"></div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-widest text-cyan-100 drop-shadow-lg">
+              ASTRA - NIDAR
+            </h1>
+            <p className="text-xs font-semibold text-cyan-400/70 tracking-wide mt-1">PHINEAS AND FERB</p>
+          </div>
+        </div>
+        <div className="text-xs font-mono text-cyan-300/60 animate-pulse">
+          ◆ OPERATIONAL ◆
         </div>
       </header>
 
       {/* Main Content - Fixed height grid */}
-      <div className="grid grid-cols-[1fr_2fr_1fr] h-[calc(100vh-56px)] gap-0 overflow-hidden">
+      <div className="grid grid-cols-[1fr_2fr_1fr] h-[calc(100vh-80px)] gap-0 overflow-hidden">
         {/* Left Panel - VTOL */}
         <div className="bg-[#0a0a1a] flex flex-col border-r border-[#2a2a5a] h-full overflow-hidden">
           <div className="p-2 flex-shrink-0">
@@ -100,8 +109,7 @@ export default function GroundControlStation() {
               altitude={telemetry.vtolGps.alt}
               airspeed={telemetry.speed}
               groundSpeed={telemetry.speed}
-              armed={telemetry.vtolArmed}
-              flying={telemetry.vtolFlying}
+              status="DISARMED"
               batteryVoltage={telemetry.batteryVoltage}
               batteryCurrent={0.0}
               batteryPercent={batteryPercent}
@@ -160,8 +168,7 @@ export default function GroundControlStation() {
               altitude={telemetry.droneGps.alt}
               airspeed={telemetry.speed}
               groundSpeed={telemetry.speed}
-              armed={telemetry.droneArmed}
-              flying={telemetry.droneFlying}
+              status="DISARMED"
               batteryVoltage={telemetry.batteryVoltage}
               batteryCurrent={0.0}
               batteryPercent={batteryPercent}

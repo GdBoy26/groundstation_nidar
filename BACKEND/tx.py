@@ -33,6 +33,10 @@ import time
 import argparse
 import serial
 import threading
+import json
+import asyncio
+import websockets
+from datetime import datetime
 from serial.tools import list_ports
 
 
@@ -95,6 +99,10 @@ class DroneCommandSender:
         self.serial = None
         self.running = False
         self.receive_thread = None
+        self.websocket_clients = set()
+        self.websocket_thread = None
+        self.demo_mode = False
+        self.websocket_loop = None
         
     def connect(self):
         """Connect to 3DR radio."""
@@ -128,11 +136,28 @@ class DroneCommandSender:
                         if data:
                             self._display_response(data)
             except Exception as e:
-                pass
+                print(f"[RX_ERROR] {e}")
             time.sleep(0.02)  # Faster polling
     
     def _display_response(self, data):
         """Format and display received response."""
+        # Determine log level and source
+        source = "DRONE"
+        level = "INFO"
+        
+        if "[ERROR]" in data or "[CRIT]" in data or "[EMERG]" in data:
+            level = "ERROR"
+        elif "[WARN]" in data:
+            level = "WARN"
+        else:
+            level = "INFO"
+        
+        # Parse and broadcast telemetry data if present
+        self._parse_and_broadcast_telemetry(data)
+        
+        # Send to frontend via WebSocket as log
+        self._broadcast_log(message=data, source=source, level=level)
+        
         # ACK responses (PONG, OK, etc)
         if "PONG" in data:
             print(f"\n  ✅ \033[92m{data}\033[0m")  # Green for ACK
@@ -161,6 +186,179 @@ class DroneCommandSender:
             print(f"\n  >> {data}")
         print("CMD> ", end='', flush=True)
     
+    def _broadcast_log(self, message: str, source: str = "DRONE", level: str = "INFO"):
+        """Broadcast log to all connected WebSocket clients."""
+        log_entry = {
+            "action": "log",
+            "data": {
+                "time": datetime.now().strftime("%H:%M:%S"),
+                "source": source,
+                "level": level,
+                "message": message
+            }
+        }
+        
+        print(f"[LOG] Broadcasting: {source} [{level}] {message}")
+        print(f"[DEBUG] websocket_loop = {self.websocket_loop}")
+        print(f"[DEBUG] websocket_clients count = {len(self.websocket_clients)}")
+        
+        # Send to all connected clients
+        if not hasattr(self, 'websocket_loop') or self.websocket_loop is None:
+            print("[LOG] WebSocket loop not ready yet, skipping broadcast")
+            return
+            
+        for client in list(self.websocket_clients):
+            try:
+                print(f"[DEBUG] Sending to client: {client}")
+                asyncio.run_coroutine_threadsafe(
+                    client.send(json.dumps(log_entry)),
+                    self.websocket_loop
+                )
+                print(f"[DEBUG] Message queued for client")
+            except Exception as e:
+                # Client disconnected, remove it
+                self.websocket_clients.discard(client)
+                print(f"[LOG] Client error: {e}")
+    
+    def _parse_and_broadcast_telemetry(self, data: str):
+        """Parse telemetry data from drone response and broadcast to WebSocket clients."""
+        try:
+            # Example formats the drone might send:
+            # ARMED, DISARMED, FLYING, LANDED
+            # SPEED:8.5 HEADING:270 ALT:120.5 PITCH:5.2 ROLL:-2.1
+            # GPS:28.545,77.192,120.5
+            
+            telemetry_update = {}
+            
+            # Parse armed/disarmed status
+            if "ARMED" in data and "DISARMED" not in data:
+                telemetry_update["droneArmed"] = True
+            elif "DISARMED" in data:
+                telemetry_update["droneArmed"] = False
+            
+            # Parse flying status
+            if "FLYING" in data:
+                telemetry_update["droneFlying"] = True
+            elif "LANDED" in data:
+                telemetry_update["droneFlying"] = False
+            
+            # Parse SPEED:value format
+            if "SPEED:" in data:
+                try:
+                    speed_str = data.split("SPEED:")[1].split()[0].rstrip(",")
+                    telemetry_update["speed"] = float(speed_str)
+                except:
+                    pass
+            
+            # Parse HEADING:value format
+            if "HEADING:" in data:
+                try:
+                    heading_str = data.split("HEADING:")[1].split()[0].rstrip(",")
+                    telemetry_update["heading"] = float(heading_str)
+                except:
+                    pass
+            
+            # Parse ALT:value format
+            if "ALT:" in data:
+                try:
+                    alt_str = data.split("ALT:")[1].split()[0].rstrip(",")
+                    alt_val = float(alt_str)
+                    telemetry_update["droneGps"] = {
+                        "lat": telemetry_update.get("droneGps", {}).get("lat", 28.545),
+                        "lon": telemetry_update.get("droneGps", {}).get("lon", 77.192),
+                        "alt": alt_val
+                    }
+                except:
+                    pass
+            
+            # Parse PITCH:value and ROLL:value
+            if "PITCH:" in data:
+                try:
+                    pitch_str = data.split("PITCH:")[1].split()[0].rstrip(",")
+                    telemetry_update["pitch"] = float(pitch_str)
+                except:
+                    pass
+            
+            if "ROLL:" in data:
+                try:
+                    roll_str = data.split("ROLL:")[1].split()[0].rstrip(",")
+                    telemetry_update["roll"] = float(roll_str)
+                except:
+                    pass
+            
+            # Parse GPS:lat,lon,alt format
+            if "GPS:" in data:
+                try:
+                    gps_str = data.split("GPS:")[1].split()[0]
+                    parts = gps_str.split(",")
+                    if len(parts) >= 3:
+                        telemetry_update["droneGps"] = {
+                            "lat": float(parts[0]),
+                            "lon": float(parts[1]),
+                            "alt": float(parts[2])
+                        }
+                except:
+                    pass
+            
+            # Only send telemetry update if we parsed something
+            if telemetry_update:
+                telemetry_message = {
+                    "action": "telemetry",
+                    "data": telemetry_update
+                }
+                
+                print(f"[TELEM] Parsed: {telemetry_update}")
+                
+                # Broadcast to all connected clients
+                for client in list(self.websocket_clients):
+                    try:
+                        asyncio.run_coroutine_threadsafe(
+                            client.send(json.dumps(telemetry_message)),
+                            self.websocket_loop
+                        )
+                    except Exception as e:
+                        self.websocket_clients.discard(client)
+        except Exception as e:
+            pass  # Silently ignore parse errors
+    
+    async def websocket_handler(self, websocket):
+        """Handle WebSocket connections - receive commands from frontend and broadcast telemetry."""
+        self.websocket_clients.add(websocket)
+        print(f"[WS] Client connected. Total clients: {len(self.websocket_clients)}")
+        
+        try:
+            async for message in websocket:
+                # Handle incoming commands from frontend
+                try:
+                    cmd = message.strip()
+                    if cmd and cmd.upper() not in ["", "NULL"]:
+                        print(f"[WS_CMD] Received command from frontend: {cmd}")
+                        # Send command to drone via serial
+                        self.send_command(cmd)
+                except Exception as e:
+                    print(f"[WS_CMD_ERROR] Failed to process command: {e}")
+        except websockets.exceptions.ConnectionClosed:
+            pass
+        finally:
+            self.websocket_clients.discard(websocket)
+            print(f"[WS] Client disconnected. Total clients: {len(self.websocket_clients)}")
+    
+    def start_websocket_server(self, host="0.0.0.0", port=8000):
+        """Start WebSocket server in separate thread."""
+        def run_server():
+            self.websocket_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(self.websocket_loop)
+            
+            async def start_and_serve():
+                async with websockets.serve(self.websocket_handler, host, port):
+                    print(f"[WS] WebSocket server started on ws://{host}:{port}/telemetry")
+                    await asyncio.Event().wait()
+            
+            self.websocket_loop.run_until_complete(start_and_serve())
+        
+        self.websocket_thread = threading.Thread(target=run_server, daemon=True)
+        self.websocket_thread.start()
+    
     def send_command(self, cmd):
         """Send a command to the drone."""
         try:
@@ -168,18 +366,30 @@ class DroneCommandSender:
             if not cmd:
                 return
             
+            print(f"[DEBUG] send_command called with: {cmd}")
+            
             # Send command with newline
             self.serial.write(f"{cmd}\n".encode())
             print(f"[TX] Sent: {cmd}")
             
+            # Broadcast the command to WebSocket clients
+            print(f"[DEBUG] About to broadcast log")
+            self._broadcast_log(message=f"TX: {cmd}", source="GROUND", level="INFO")
+            print(f"[DEBUG] Broadcast complete")
+            
         except Exception as e:
             print(f"[ERROR] Failed to send: {e}")
+            self._broadcast_log(message=f"ERROR: Failed to send '{cmd}': {e}", source="GROUND", level="ERROR")
     
     def run_interactive(self):
         """Run interactive command mode."""
         print("\n" + "=" * 50)
         print("  DRONE SCOUT - Ground Station")
         print("=" * 50)
+        
+        # Start WebSocket server on port 8765 to avoid conflicts
+        self.start_websocket_server(host="0.0.0.0", port=8765)
+        
         print("\nQuick start (SCOUT auto-starts detection + recording):")
         print("  1. SCOUT              <- Just this for ground test!")
         print("  2. SCOUT:STOP         <- Stop and save video")
@@ -304,7 +514,17 @@ def main():
                        help='Serial port (auto-detect if not specified, Windows: COM3, Linux: /dev/ttyUSB0)')
     parser.add_argument('--baud', type=int, default=57600,
                        help='Baud rate (default: 57600)')
+    parser.add_argument('--demo', action='store_true',
+                       help='Run in demo mode without serial connection')
     args = parser.parse_args()
+    
+    # In demo mode, skip serial connection
+    if args.demo:
+        print("[INFO] Running in DEMO mode - no serial connection required")
+        sender = DroneCommandSender(port="DEMO", baud=args.baud)
+        sender.demo_mode = True
+        sender.run_interactive()
+        return
     
     # Auto-detect port if not specified
     port = args.port if args.port else auto_detect_port(args.baud)

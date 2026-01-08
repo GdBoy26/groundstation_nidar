@@ -1,4 +1,5 @@
 import { useTelemetryStore } from "@/stores/telemetryStore";
+import { getTelemetryWebSocketClient } from "@/lib/telemetryWebSocket";
 
 /*
   Telemetry update rate
@@ -13,6 +14,12 @@ let lastPersonDetected = 0;
 
 export function startMockTelemetryEngine() {
   setInterval(() => {
+    // Skip mock data if WebSocket is connected (use real backend data instead)
+    const wsClient = getTelemetryWebSocketClient();
+    if (wsClient.isConnected()) {
+      return; // Don't generate mock data, let the backend WebSocket provide real data
+    }
+
     t++;
 
     const store = useTelemetryStore.getState();
