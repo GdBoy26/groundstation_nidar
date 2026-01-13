@@ -22,10 +22,13 @@ Commands:
     ABORT         - Emergency abort
     PING          - Test connection
     
+For dual-drone operation, use dual_drone_controller.py instead.
+    
 Usage:
-    python3 tx_commands.py
-    python3 tx_commands.py --port COM3      # Windows
-    python3 tx_commands.py --port /dev/ttyUSB0  # Linux
+    python3 tx.py
+    python3 tx.py --port COM3      # Windows
+    python3 tx.py --port /dev/ttyUSB0  # Linux
+    python3 tx.py --demo           # Demo mode without hardware
 """
 
 import sys
@@ -103,6 +106,7 @@ class DroneCommandSender:
         self.websocket_thread = None
         self.demo_mode = False
         self.websocket_loop = None
+        self.drone_id = "DRONE"  # Identifier for this drone connection
         
     def connect(self):
         """Connect to 3DR radio."""
@@ -381,6 +385,114 @@ class DroneCommandSender:
             print(f"[ERROR] Failed to send: {e}")
             self._broadcast_log(message=f"ERROR: Failed to send '{cmd}': {e}", source="GROUND", level="ERROR")
     
+    def send_command_with_ack(self, cmd: str, expected_acks: list = None, timeout: float = 10.0) -> bool:
+        """
+        Send a command and wait for acknowledgment.
+        
+        Args:
+            cmd: Command to send
+            expected_acks: List of strings that count as acknowledgment
+            timeout: Timeout in seconds
+            
+        Returns:
+            True if acknowledged, False if timeout
+        """
+        if expected_acks is None:
+            expected_acks = self._get_default_acks(cmd)
+        
+        # Clear any pending responses
+        if self.serial:
+            self.serial.reset_input_buffer()
+        
+        # Send command
+        self.send_command(cmd)
+        
+        # Wait for acknowledgment
+        start_time = time.time()
+        buffer = ""
+        
+        while time.time() - start_time < timeout:
+            if self.demo_mode:
+                time.sleep(0.5)
+                return True
+                
+            if self.serial and self.serial.in_waiting > 0:
+                chunk = self.serial.read(self.serial.in_waiting).decode('utf-8', errors='ignore')
+                buffer += chunk
+                
+                # Check for any expected ack
+                for ack in expected_acks:
+                    if ack.upper() in buffer.upper():
+                        print(f"[ACK] Received acknowledgment for '{cmd}'")
+                        return True
+            
+            time.sleep(0.05)
+        
+        print(f"[TIMEOUT] No acknowledgment received for '{cmd}'")
+        return False
+    
+    def _get_default_acks(self, cmd: str) -> list:
+        """Get default acknowledgment patterns for a command."""
+        cmd_upper = cmd.upper().strip()
+        
+        if cmd_upper == "PING":
+            return ["PONG"]
+        elif cmd_upper == "ARM":
+            return ["ARMED", "ARM OK", "OK"]
+        elif cmd_upper == "DISARM":
+            return ["DISARMED", "DISARM OK", "OK"]
+        elif cmd_upper.startswith("TAKEOFF"):
+            return ["TAKEOFF OK", "TAKING OFF", "AIRBORNE", "OK"]
+        elif cmd_upper == "LAND":
+            return ["LANDING", "LAND OK", "OK"]
+        elif cmd_upper == "RTL":
+            return ["RTL", "RETURNING", "OK"]
+        elif cmd_upper == "SCOUT":
+            return ["SCOUT", "SCOUTING", "DETECTION", "OK"]
+        elif cmd_upper.startswith("GOTO"):
+            return ["GOTO OK", "NAVIGATING", "OK"]
+        elif cmd_upper.startswith("MODE"):
+            return ["MODE", "OK"]
+        else:
+            return ["OK", "ACK"]
+    
+    def execute_mission_sequence(self, altitude: float = 10.0) -> bool:
+        """
+        Execute a standard mission sequence with acknowledgment waiting.
+        
+        Sequence: PING → ARM → TAKEOFF → SCOUT → MODE:AUTO
+        
+        Returns:
+            True if all steps succeeded
+        """
+        print("\n" + "="*50)
+        print("  EXECUTING MISSION SEQUENCE")
+        print("="*50 + "\n")
+        
+        steps = [
+            ("PING", 5.0, "Testing connection..."),
+            ("ARM", 10.0, "Arming drone..."),
+            (f"TAKEOFF:{altitude}", 30.0, f"Taking off to {altitude}m..."),
+            ("SCOUT", 10.0, "Starting scout/detection mode..."),
+            ("MODE:AUTO", 10.0, "Setting autonomous mode..."),
+        ]
+        
+        for i, (cmd, timeout, description) in enumerate(steps, 1):
+            print(f"[MISSION] Step {i}/{len(steps)}: {description}")
+            
+            if not self.send_command_with_ack(cmd, timeout=timeout):
+                print(f"[MISSION] ❌ Step {i} failed: {cmd}")
+                return False
+            
+            print(f"[MISSION] ✅ Step {i} complete")
+            time.sleep(0.5)
+        
+        print("\n" + "="*50)
+        print("  ✅ MISSION SEQUENCE COMPLETE")
+        print("="*50 + "\n")
+        
+        return True
+
     def run_interactive(self):
         """Run interactive command mode."""
         print("\n" + "=" * 50)
@@ -399,8 +511,10 @@ class DroneCommandSender:
         print("  3. SCOUT              <- Auto-starts detection + recording")
         print("  4. RTL")
         print("  5. SCOUT:STOP")
-        print("\nWith waypoints:")
-        print("  WP:lat,lon,alt -> SCOUT")
+        print("\nSequenced mission (auto with ack waiting):")
+        print("  MISSION               <- Runs PING→ARM→TAKEOFF→SCOUT→AUTO")
+        print("\nDual Drone Mode:")
+        print("  python3 dual_drone_controller.py --demo")
         print("\nTelemetry: Real-time logs appear with 📡 prefix")
         print("Type HELP for all commands")
         print("-" * 50)
@@ -422,6 +536,21 @@ class DroneCommandSender:
                     
                     if cmd == "HELP" or cmd == "?":
                         self.show_help()
+                        continue
+                    
+                    # Handle MISSION command
+                    if cmd == "MISSION" or cmd.startswith("MISSION:"):
+                        alt = 10.0
+                        if ":" in cmd:
+                            try:
+                                alt = float(cmd.split(":")[1])
+                            except:
+                                pass
+                        threading.Thread(
+                            target=self.execute_mission_sequence,
+                            args=(alt,),
+                            daemon=True
+                        ).start()
                         continue
                     
                     if cmd:
@@ -446,6 +575,7 @@ Commands:
   === QUICK START (Ground Test) ===
   SCOUT            - Start detection + recording (auto!)
   SCOUT:STOP       - Stop everything and save video
+  MISSION          - Execute full sequence: PING→ARM→TAKEOFF→SCOUT→AUTO
   
   === FULL FLIGHT SEQUENCE ===
   1. ARM              - Arm the drone
@@ -476,11 +606,19 @@ Commands:
   DETECT:STATUS    - Get detection count + recording status
   DETECT:CONF:0.7  - Set confidence (0.1-1.0)
   
+  === SEQUENCED COMMANDS (with ack waiting) ===
+  MISSION          - Full mission: PING→ARM→TAKEOFF→SCOUT→AUTO
+  MISSION:15       - Mission with 15m altitude
+  
   === OTHER ===
   STATUS           - Get drone status
   PING             - Test connection
   MODE:GUIDED      - Set guided mode
   QUIT             - Exit program
+
+  === DUAL DRONE MODE ===
+  For coordinating VTOL + Delivery drones, use:
+  python3 dual_drone_controller.py --demo
 
   === TELEMETRY ===
   Real-time logs from drone appear automatically:
@@ -497,12 +635,8 @@ Commands:
   ... Video saved to recordings/scout_YYYYMMDD_HHMMSS.mp4
 
   === EXAMPLE: FULL FLIGHT ===
-  CMD> ARM
-  CMD> TAKEOFF:10
-  CMD> WP:12.9716,77.5946,10
-  CMD> WP:12.9720,77.5950,10
-  CMD> SCOUT
-  ... Flies to waypoints, detects humans, records video...
+  CMD> MISSION
+  ... Executes PING→ARM→TAKEOFF→SCOUT→AUTO automatically
   CMD> RTL
   CMD> SCOUT:STOP
 """)

@@ -15,7 +15,7 @@ type Person = {
   delivered: boolean;
 };
 
-type LogSource = "DRONE" | "VTOL" | "SYSTEM";
+type LogSource = "DRONE" | "VTOL" | "SYSTEM"|"GROUND";
 type LogLevel = "INFO" | "WARN" | "ERROR";
 
 type LogEntry = {
