@@ -31,6 +31,9 @@ const personDeliveredIcon = new L.Icon({
   iconAnchor: [14, 14],
 });
 
+/* ---------- Default GPS ---------- */
+const DEFAULT_GPS = { lat: 28.545, lon: 77.192, alt: 0 };
+
 /* ---------- Component ---------- */
 
 export default function GCSMapClient() {
@@ -38,15 +41,21 @@ export default function GCSMapClient() {
   const vtolGps = useTelemetryStore((s) => s.vtolGps);
   const persons = useTelemetryStore((s) => s.persons);
 
+  // Safe GPS with defaults
+  const safeDroneGps = droneGps || DEFAULT_GPS;
+  const safeVtolGps = vtolGps || DEFAULT_GPS;
+
   const [dronePath, setDronePath] = useState<[number, number][]>([]);
 
   useEffect(() => {
-    setDronePath((prev) => [...prev, [droneGps.lat, droneGps.lon]]);
-  }, [droneGps.lat, droneGps.lon]);
+    if (safeDroneGps.lat && safeDroneGps.lon) {
+      setDronePath((prev) => [...prev, [safeDroneGps.lat, safeDroneGps.lon]]);
+    }
+  }, [safeDroneGps.lat, safeDroneGps.lon]);
 
   return (
     <MapContainer
-      center={[droneGps.lat, droneGps.lon]}
+      center={[safeDroneGps.lat, safeDroneGps.lon]}
       zoom={16}
       style={{ height: "100%", width: "100%" }}
     >
@@ -69,11 +78,11 @@ export default function GCSMapClient() {
       ))}
 
       {/* Drone */}
-      <Marker position={[droneGps.lat, droneGps.lon]} icon={droneIcon} />
+      <Marker position={[safeDroneGps.lat, safeDroneGps.lon]} icon={droneIcon} />
       <Polyline positions={dronePath} />
 
       {/* VTOL */}
-      <Marker position={[vtolGps.lat, vtolGps.lon]} icon={vtolIcon} />
+      <Marker position={[safeVtolGps.lat, safeVtolGps.lon]} icon={vtolIcon} />
     </MapContainer>
   );
 }

@@ -25,6 +25,12 @@ type LogEntry = {
   message: string;
 };
 
+type ReloadTimer = {
+  seconds: number;
+  status: string;
+  timestamp: string;
+};
+
 type TelemetryState = {
   /* Time */
   time: string;
@@ -44,7 +50,12 @@ type TelemetryState = {
 
   /* Power */
   batteryVoltage: number;
+  batteryCurrent: number;
+  batteryPercent: number;
   mode: string;
+
+  /* Airspeed */
+  airspeed: number;
 
   /* Status */
   vtolArmed: boolean;
@@ -65,6 +76,8 @@ type TelemetryState = {
   logs: LogEntry[];
   addLog: (log: LogEntry) => void;
 
+  /* Reload Timer (Delivery drone) */
+  reloadTimer: ReloadTimer | null;
 
   /* Actions */
   setState: (p: Partial<TelemetryState>) => void;
@@ -93,7 +106,12 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
 
   /* Power */
   batteryVoltage: 12.6,
+  batteryCurrent: 0,
+  batteryPercent: 100,
   mode: "AUTO",
+
+  /* Airspeed */
+  airspeed: 0,
 
   /* Status */
   vtolArmed: false,
@@ -112,6 +130,9 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
 
   /* Logs */
   logs: [],
+
+  /* Reload Timer */
+  reloadTimer: null,
 
   addLog: (log) =>
     set((state) => ({

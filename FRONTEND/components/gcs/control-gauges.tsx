@@ -3,18 +3,20 @@
 import { useState, useEffect } from "react"
 
 interface ControlGaugesProps {
-  speed: number
-  heading: number
-  altitude: number
-  vtolAltitude?: number
-  droneAltitude?: number
+  vtolSpeed: number
+  vtolHeading: number
+  vtolAltitude: number
+  droneSpeed: number
+  droneHeading: number
+  droneAltitude: number
 }
 
 export function ControlGauges({ 
-  speed = 0, 
-  heading = 0, 
-  altitude = 0,
+  vtolSpeed = 0, 
+  vtolHeading = 0, 
   vtolAltitude = 0,
+  droneSpeed = 0,
+  droneHeading = 0,
   droneAltitude = 0
 }: ControlGaugesProps) {
   const [missionTime, setMissionTime] = useState({ hours: 0, minutes: 0, seconds: 0 });
@@ -145,13 +147,13 @@ export function ControlGauges({
       <div className="flex flex-col items-center gap-1 flex-shrink-0">
         <div className="text-xs font-bold text-cyan-400">VTOL</div>
         <div className="flex gap-1.5 items-center">
-          <SpeedGauge speed={speed} label="SPD" />
+          <SpeedGauge speed={vtolSpeed} label="SPD" />
           
           {/* Readings between gauges */}
           <div className="grid grid-cols-2 gap-1.5 text-center flex-shrink-0">
             <div className="bg-[#0a0a1a] border border-green-500 px-1 py-0.5 rounded">
               <div className="text-[6px] text-gray-400">SPD</div>
-              <div className="text-[10px] font-bold text-green-400">{speed.toFixed(1)}</div>
+              <div className="text-[10px] font-bold text-green-400">{vtolSpeed.toFixed(1)}</div>
             </div>
             <div className="bg-[#0a0a1a] border border-cyan-500 px-1 py-0.5 rounded">
               <div className="text-[6px] text-gray-400">ALT</div>
@@ -159,7 +161,7 @@ export function ControlGauges({
             </div>
             <div className="bg-[#0a0a1a] border border-yellow-500 px-1 py-0.5 rounded col-span-2">
               <div className="text-[6px] text-gray-400">HDG</div>
-              <div className="text-[10px] font-bold text-yellow-300">{Math.round(heading)}°</div>
+              <div className="text-[10px] font-bold text-yellow-300">{Math.round(vtolHeading)}°</div>
             </div>
           </div>
 
@@ -167,43 +169,8 @@ export function ControlGauges({
         </div>
       </div>
 
-      {/* Center - Compass & Times */}
+      {/* Center - Time Displays only (no compass) */}
       <div className="flex flex-col items-center gap-1 flex-shrink-0">
-        {/* Compass */}
-        <div className="relative w-24 h-24">
-          <svg viewBox="0 0 100 100" className="w-full h-full">
-            <circle cx="50" cy="50" r="45" fill="#1a1a1a" stroke="#333" strokeWidth="2" />
-            <g transform={`rotate(${heading} 50 50)`}>
-              {["N", "E", "S", "W"].map((dir, i) => {
-                const angle = -90 + i * 90;
-                const rad = (angle * Math.PI) / 180;
-                const x = 50 + 35 * Math.cos(rad);
-                const y = 50 + 35 * Math.sin(rad);
-                return (
-                  <text
-                    key={dir}
-                    x={x}
-                    y={y}
-                    fill="white"
-                    fontSize="10"
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    fontWeight="bold"
-                  >
-                    {dir}
-                  </text>
-                );
-              })}
-            </g>
-            <path d="M50 30L45 50H40L43 55H47L50 65L53 55H57L60 50H55L50 30Z" fill="yellow" />
-            <line x1="50" y1="15" x2="50" y2="25" stroke="white" strokeWidth="1" />
-            <line x1="50" y1="75" x2="50" y2="85" stroke="white" strokeWidth="1" />
-            <line x1="15" y1="50" x2="25" y2="50" stroke="white" strokeWidth="1" />
-            <line x1="75" y1="50" x2="85" y2="50" stroke="white" strokeWidth="1" />
-          </svg>
-        </div>
-
-        {/* Time Displays below compass */}
         <div className="grid grid-cols-3 gap-1.5">
           <div className="bg-[#0a0a1a] border border-green-500 px-1 py-1 rounded text-center">
             <div className="text-[7px] text-gray-400">MIS</div>
@@ -240,15 +207,15 @@ export function ControlGauges({
             </div>
             <div className="bg-[#0a0a1a] border border-green-500 px-1 py-0.5 rounded">
               <div className="text-[6px] text-gray-400">SPD</div>
-              <div className="text-[10px] font-bold text-green-400">{speed.toFixed(1)}</div>
+              <div className="text-[10px] font-bold text-green-400">{droneSpeed.toFixed(1)}</div>
             </div>
             <div className="bg-[#0a0a1a] border border-yellow-500 px-1 py-0.5 rounded col-span-2">
               <div className="text-[6px] text-gray-400">HDG</div>
-              <div className="text-[10px] font-bold text-yellow-300">{Math.round(heading)}°</div>
+              <div className="text-[10px] font-bold text-yellow-300">{Math.round(droneHeading)}°</div>
             </div>
           </div>
 
-          <SpeedGauge speed={speed} label="SPD" />
+          <SpeedGauge speed={droneSpeed} label="SPD" />
         </div>
       </div>
     </div>

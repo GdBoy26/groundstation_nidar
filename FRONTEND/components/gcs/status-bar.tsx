@@ -9,6 +9,8 @@ interface StatusBarProps {
   longitude: string
   cog: number
   sog: number
+  vtolHardwareConnected?: boolean
+  droneHardwareConnected?: boolean
 }
 
 export function StatusBar({
@@ -20,25 +22,35 @@ export function StatusBar({
   longitude,
   cog,
   sog,
+  vtolHardwareConnected = false,
+  droneHardwareConnected = false,
 }: StatusBarProps) {
   return (
     <div className="bg-[#1a1a2e] py-2 px-4 flex items-center justify-between gap-4 border-t border-[#2a2a5a] h-auto overflow-hidden">
+      {/* VTOL Connection Status */}
+      <div className="flex items-center gap-1 flex-shrink-0">
+        <span className="text-gray-300 text-xs whitespace-nowrap">VTOL:</span>
+        <div className={`px-2 py-1 rounded text-xs font-bold ${vtolHardwareConnected ? 'bg-green-900/50 border border-green-500 text-green-400' : 'bg-red-900/50 border border-red-500 text-red-400'}`}>
+          {vtolHardwareConnected ? '● CONNECTED' : '○ DISCONNECTED'}
+        </div>
+      </div>
+
+      {/* VTOL Battery */}
+      <div className="flex items-center gap-1 flex-shrink-0">
+        <span className="text-gray-300 text-xs whitespace-nowrap">BATT:</span>
+        <div className={`bg-[#0a0a1a] border px-2 py-1 min-w-[50px] text-center ${vtolBattery < 20 ? 'border-red-500' : vtolBattery < 50 ? 'border-yellow-500' : 'border-green-500'}`}>
+          <span className={`text-lg font-bold ${vtolBattery < 20 ? 'text-red-400' : vtolBattery < 50 ? 'text-yellow-400' : 'text-green-400'}`}>
+            {Math.round(vtolBattery)}%
+          </span>
+        </div>
+      </div>
+
       {/* Person Count */}
       <div className="flex items-center gap-1 flex-shrink-0">
         <span className="text-gray-300 text-xs whitespace-nowrap">PERSONS:</span>
         <div className="bg-[#0a0a1a] border border-gray-600 px-2 py-1 min-w-[40px] text-center">
           <span className="text-white text-lg font-bold">{personCount.toString().padStart(2, "0")}</span>
         </div>
-      </div>
-
-      {/* VTOL Battery */}
-      <div className="flex items-center gap-1 flex-shrink-0">
-        <span className="text-gray-300 text-xs whitespace-nowrap">VTOL:</span>
-        <div className="relative w-12 h-6 border-2 border-gray-400 rounded-sm bg-[#0a0a1a]">
-          <div className="absolute left-0 top-0 bottom-0 bg-green-500" style={{ width: `${vtolBattery}%` }} />
-          <div className="absolute -right-1 top-1/2 -translate-y-1/2 w-1 h-2 bg-gray-400 rounded-r" />
-        </div>
-        <span className="text-gray-400 text-xs whitespace-nowrap">{vtolBattery}%</span>
       </div>
 
       {/* GPS Info */}
@@ -66,21 +78,29 @@ export function StatusBar({
         </div>
       </div>
 
-      {/* Drone Battery */}
-      <div className="flex items-center gap-1 flex-shrink-0">
-        <span className="text-gray-300 text-xs whitespace-nowrap">DRONE:</span>
-        <div className="relative w-12 h-6 border-2 border-gray-400 rounded-sm bg-[#0a0a1a]">
-          <div className="absolute left-0 top-0 bottom-0 bg-green-500" style={{ width: `${droneBattery}%` }} />
-          <div className="absolute -right-1 top-1/2 -translate-y-1/2 w-1 h-2 bg-gray-400 rounded-r" />
-        </div>
-        <span className="text-gray-400 text-xs whitespace-nowrap">{droneBattery}%</span>
-      </div>
-
       {/* Person Delivered */}
       <div className="flex items-center gap-1 flex-shrink-0">
         <span className="text-gray-300 text-xs whitespace-nowrap">DELIVERED:</span>
         <div className="bg-[#0a0a1a] border border-gray-600 px-2 py-1 min-w-[40px] text-center">
           <span className="text-white text-lg font-bold">{personDelivered.toString().padStart(2, "0")}</span>
+        </div>
+      </div>
+
+      {/* Drone Connection Status */}
+      <div className="flex items-center gap-1 flex-shrink-0">
+        <span className="text-gray-300 text-xs whitespace-nowrap">DRONE:</span>
+        <div className={`px-2 py-1 rounded text-xs font-bold ${droneHardwareConnected ? 'bg-green-900/50 border border-green-500 text-green-400' : 'bg-red-900/50 border border-red-500 text-red-400'}`}>
+          {droneHardwareConnected ? '● CONNECTED' : '○ DISCONNECTED'}
+        </div>
+      </div>
+
+      {/* Drone Battery */}
+      <div className="flex items-center gap-1 flex-shrink-0">
+        <span className="text-gray-300 text-xs whitespace-nowrap">BATT:</span>
+        <div className={`bg-[#0a0a1a] border px-2 py-1 min-w-[50px] text-center ${droneBattery < 20 ? 'border-red-500' : droneBattery < 50 ? 'border-yellow-500' : 'border-green-500'}`}>
+          <span className={`text-lg font-bold ${droneBattery < 20 ? 'text-red-400' : droneBattery < 50 ? 'text-yellow-400' : 'text-green-400'}`}>
+            {Math.round(droneBattery)}%
+          </span>
         </div>
       </div>
     </div>

@@ -14,16 +14,16 @@ interface ArtificialHorizonProps {
 }
 
 export function ArtificialHorizon({
-  pitch,
-  roll,
-  altitude,
-  airspeed,
-  groundSpeed,
-  armed,
-  flying,
-  batteryVoltage,
-  batteryCurrent,
-  batteryPercent,
+  pitch = 0,
+  roll = 0,
+  altitude = 0,
+  airspeed = 0,
+  groundSpeed = 0,
+  armed = false,
+  flying = false,
+  batteryVoltage = 12.6,
+  batteryCurrent = 0,
+  batteryPercent = 100,
 }: ArtificialHorizonProps) {
   // Determine status display
   const getStatusDisplay = () => {
@@ -174,13 +174,13 @@ export function ArtificialHorizon({
       </div>
       <div className="absolute right-0 bottom-2 text-[9px] text-white font-bold text-right">
         <div>Alt</div>
-        <div className="text-base text-cyan-300">{altitude.toFixed(0)}m</div>
+        <div className="text-base text-cyan-300">{(altitude ?? 0).toFixed(0)}m</div>
       </div>
 
       {/* Bottom info bar */}
       <div className="absolute bottom-0 left-0 right-0 bg-[#1a3a1a]/90 text-[9px] text-green-300 px-2 py-1 flex justify-between font-mono">
         <span>
-          Bat {batteryVoltage.toFixed(1)}V {batteryCurrent.toFixed(1)}A {batteryPercent}%
+          Bat {(batteryVoltage ?? 0).toFixed(1)}V {(batteryCurrent ?? 0).toFixed(1)}A {batteryPercent ?? 0}%
         </span>
         <span className={statusColor}>{statusDisplay}</span>
         <span>EKF</span>

@@ -1,0 +1,23 @@
+{
+  "description": "NIDAR GCS Radio Configuration - 433MHz Dual Drone System",
+  "frequency": "433MHz",
+  "vtol": {
+    "name": "VTOL Scout",
+    "port": "COM17",
+    "baud": 57600,
+    "websocket_port": 8765,
+    "description": "VTOL scout drone for KML boundary survey"
+  },
+  "delivery": {
+    "name": "Delivery Drone",
+    "port": "COM27",
+    "baud": 57600,
+    "websocket_port": 8766,
+    "description": "Quadcopter for supply delivery to detected humans"
+  },
+  "notes": {
+    "vtol_rtl": "VTOL RTL happens ONLY when KML mission is complete, NOT on timer",
+    "logs": "Each drone has independent WebSocket with separate logs",
+    "detection_queue": "Human detections from VTOL are queued for Delivery dispatch"
+  }
+}

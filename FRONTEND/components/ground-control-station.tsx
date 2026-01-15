@@ -1,10 +1,9 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useState, useEffect } from "react"
 import { useTelemetryStore } from "@/stores/telemetryStore"
 import { useLatestPersonDetectionLog } from "@/hooks/use-person-logs"
 import { ArtificialHorizon } from "./gcs/artificial-horizon"
-import { CompassIndicator } from "./gcs/compass-indicator"
 import { LogPanel } from "./gcs/log-panel"
 import { MapView } from "./gcs/map-view"
 import { ControlGauges } from "./gcs/control-gauges"
@@ -22,10 +21,19 @@ export default function GroundControlStation() {
   const pitch = useTelemetryStore((s) => s.pitch)
   const yaw = useTelemetryStore((s) => s.yaw)
   const speed = useTelemetryStore((s) => s.speed)
+  const airspeed = useTelemetryStore((s) => s.airspeed)
   const heading = useTelemetryStore((s) => s.heading)
   const batteryVoltage = useTelemetryStore((s) => s.batteryVoltage)
+  const batteryCurrent = useTelemetryStore((s) => s.batteryCurrent)
+  const batteryPercent = useTelemetryStore((s) => s.batteryPercent)
   const mode = useTelemetryStore((s) => s.mode)
   const persons = useTelemetryStore((s) => s.persons)
+  const vtolArmed = useTelemetryStore((s) => s.vtolArmed)
+  const vtolFlying = useTelemetryStore((s) => s.vtolFlying)
+  const droneArmed = useTelemetryStore((s) => s.droneArmed)
+  const droneFlying = useTelemetryStore((s) => s.droneFlying)
+  const vtolHardwareConnected = useTelemetryStore((s) => s.vtolHardwareConnected)
+  const droneHardwareConnected = useTelemetryStore((s) => s.droneHardwareConnected)
 
   // Memoized telemetry object for easy passing to components
   const telemetry = useMemo(() => ({
@@ -36,22 +44,25 @@ export default function GroundControlStation() {
     pitch,
     yaw,
     speed,
+    airspeed,
     heading,
     batteryVoltage,
+    batteryCurrent,
+    batteryPercent,
     mode,
     persons,
-  }), [time, droneGps, vtolGps, roll, pitch, yaw, speed, heading, batteryVoltage, mode, persons])
+    vtolArmed,
+    vtolFlying,
+    droneArmed,
+    droneFlying,
+    vtolHardwareConnected,
+    droneHardwareConnected,
+  }), [time, droneGps, vtolGps, roll, pitch, yaw, speed, airspeed, heading, batteryVoltage, batteryCurrent, batteryPercent, mode, persons, vtolArmed, vtolFlying, droneArmed, droneFlying, vtolHardwareConnected, droneHardwareConnected])
 
   // Calculate derived values
   const personDelivered = useMemo(() => {
     return telemetry.persons.filter(p => p.delivered).length
   }, [telemetry.persons])
-
-  const batteryPercent = useMemo(() => {
-    // Assuming 12V = 100%, 10V = 0%
-    const percent = Math.max(0, Math.min(100, (telemetry.batteryVoltage - 10) / 2 * 100))
-    return Math.round(percent)
-  }, [telemetry.batteryVoltage])
 
   // Format coordinates for display
   const formatCoordinate = (lat: number, lon: number) => {
@@ -69,50 +80,65 @@ export default function GroundControlStation() {
     }
   }
 
-  const droneCoords = formatCoordinate(telemetry.droneGps.lat, telemetry.droneGps.lon)
-  const vtolCoords = formatCoordinate(telemetry.vtolGps.lat, telemetry.vtolGps.lon)
+  // Safe GPS access with defaults
+  const safeVtolGps = telemetry.vtolGps || { lat: 0, lon: 0, alt: 0 }
+  const safeDroneGps = telemetry.droneGps || { lat: 0, lon: 0, alt: 0 }
+
+  const droneCoords = formatCoordinate(safeDroneGps.lat, safeDroneGps.lon)
+  const vtolCoords = formatCoordinate(safeVtolGps.lat, safeVtolGps.lon)
+
+  // Track latest detection for visual alert
+  const [showDetectionAlert, setShowDetectionAlert] = useState(false)
+  const [latestDetection, setLatestDetection] = useState<{lat: number, lon: number} | null>(null)
+  
+  // Watch for new person detections
+  useEffect(() => {
+    if (telemetry.persons.length > 0) {
+      const lastPerson = telemetry.persons[telemetry.persons.length - 1]
+      if (!lastPerson.delivered) {
+        setLatestDetection({ lat: lastPerson.lat, lon: lastPerson.lon })
+        setShowDetectionAlert(true)
+        // Hide alert after 5 seconds
+        const timer = setTimeout(() => setShowDetectionAlert(false), 5000)
+        return () => clearTimeout(timer)
+      }
+    }
+  }, [telemetry.persons.length])
 
   return (
     <div className="min-h-screen bg-[#0a0a1a] text-white overflow-hidden">
-      {/* Header */}
-      <header className="bg-gradient-to-r from-[#1a1a3a] via-[#2a1a4a] to-[#1a2a4a] h-20 flex items-center justify-between px-6 relative border-b-2 border-cyan-500/40 shadow-lg shadow-cyan-500/10 backdrop-blur-sm">
-        <div className="flex items-center gap-4">
-          <div className="w-16 h-12 flex flex-col rounded-lg overflow-hidden shadow-xl border-2 border-cyan-400/30 hover:border-cyan-300/60 transition-all hover:shadow-cyan-400/30">
-            <div className="h-1/3 bg-[#FF9933]"></div>
-            <div className="h-1/3 bg-white flex items-center justify-center">
-              <div className="w-3.5 h-3.5 rounded-full border-2 border-[#000080] shadow-sm"></div>
+      {/* Detection Alert Overlay */}
+      {showDetectionAlert && latestDetection && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 animate-pulse">
+          <div className="bg-red-600/90 border-2 border-red-400 px-6 py-3 rounded-lg shadow-lg shadow-red-500/50 flex items-center gap-3">
+            <div className="w-4 h-4 bg-red-300 rounded-full animate-ping"></div>
+            <div>
+              <div className="text-white font-bold text-lg">🚨 HUMAN DETECTED</div>
+              <div className="text-red-200 text-sm font-mono">
+                LAT: {latestDetection.lat.toFixed(6)} | LON: {latestDetection.lon.toFixed(6)}
+              </div>
             </div>
-            <div className="h-1/3 bg-[#138808]"></div>
-          </div>
-          <div className="h-14 w-1 bg-gradient-to-b from-transparent via-cyan-500/50 to-transparent rounded-full"></div>
-          <div>
-            <h1 className="text-2xl font-bold tracking-widest text-cyan-100 drop-shadow-lg">
-              ASTRA - NIDAR
-            </h1>
-            <p className="text-xs font-semibold text-cyan-400/70 tracking-wide mt-1">PHINEAS AND FERB</p>
+            <div className="w-4 h-4 bg-red-300 rounded-full animate-ping"></div>
           </div>
         </div>
-        <div className="text-xs font-mono text-cyan-300/60 animate-pulse">
-          ◆ OPERATIONAL ◆
-        </div>
-      </header>
+      )}
 
-      {/* Main Content - Fixed height grid */}
-      <div className="grid grid-cols-[1fr_2fr_1fr] h-[calc(100vh-80px)] gap-0 overflow-hidden">
+      {/* Main Content - Full height grid (no header) */}
+      <div className="grid grid-cols-[1fr_3fr_1fr] h-screen gap-0 overflow-hidden">
         {/* Left Panel - VTOL */}
         <div className="bg-[#0a0a1a] flex flex-col border-r border-[#2a2a5a] h-full overflow-hidden">
           <div className="p-2 flex-shrink-0">
-            <CompassIndicator heading={telemetry.heading} />
             <ArtificialHorizon
               pitch={telemetry.pitch}
               roll={telemetry.roll}
-              altitude={telemetry.vtolGps.alt}
-              airspeed={telemetry.speed}
+              altitude={safeVtolGps.alt}
+              airspeed={telemetry.airspeed || telemetry.speed}
               groundSpeed={telemetry.speed}
-              status="DISARMED"
+              armed={telemetry.vtolArmed}
+              flying={telemetry.vtolFlying}
               batteryVoltage={telemetry.batteryVoltage}
-              batteryCurrent={0.0}
-              batteryPercent={batteryPercent}
+              batteryCurrent={telemetry.batteryCurrent}
+              batteryPercent={telemetry.batteryPercent}
             />
           </div>
           <div className="text-center text-sm font-semibold text-gray-300 py-2 flex-shrink-0">VTOL - LOG</div>
@@ -128,23 +154,26 @@ export default function GroundControlStation() {
           </div>
           <div className="h-36 flex-shrink-0 overflow-hidden">
             <ControlGauges 
-              speed={telemetry.speed}
-              heading={telemetry.heading}
-              altitude={telemetry.vtolGps.alt}
-              vtolAltitude={telemetry.vtolGps.alt}
-              droneAltitude={telemetry.droneGps.alt}
+              vtolSpeed={telemetry.speed}
+              vtolHeading={telemetry.heading}
+              vtolAltitude={safeVtolGps.alt}
+              droneSpeed={telemetry.speed}
+              droneHeading={telemetry.heading}
+              droneAltitude={safeDroneGps.alt}
             />
           </div>
           <div className="h-auto flex-shrink-0">
             <StatusBar
               personCount={telemetry.persons.length}
-              vtolBattery={batteryPercent}
-              droneBattery={batteryPercent}
+              vtolBattery={telemetry.batteryPercent}
+              droneBattery={telemetry.batteryPercent}
               personDelivered={personDelivered}
               latitude={vtolCoords.latitude}
               longitude={vtolCoords.longitude}
               cog={telemetry.heading}
               sog={telemetry.speed}
+              vtolHardwareConnected={telemetry.vtolHardwareConnected}
+              droneHardwareConnected={telemetry.droneHardwareConnected}
             />
           </div>
           <div className="flex-shrink-0">
@@ -161,17 +190,17 @@ export default function GroundControlStation() {
         {/* Right Panel - DRONE */}
         <div className="bg-[#0a0a1a] flex flex-col border-l border-[#2a2a5a] h-full overflow-hidden">
           <div className="p-2 flex-shrink-0">
-            <CompassIndicator heading={telemetry.heading} />
             <ArtificialHorizon
               pitch={telemetry.pitch}
               roll={telemetry.roll}
-              altitude={telemetry.droneGps.alt}
-              airspeed={telemetry.speed}
+              altitude={safeDroneGps.alt}
+              airspeed={telemetry.airspeed || telemetry.speed}
               groundSpeed={telemetry.speed}
-              status="DISARMED"
+              armed={telemetry.droneArmed}
+              flying={telemetry.droneFlying}
               batteryVoltage={telemetry.batteryVoltage}
-              batteryCurrent={0.0}
-              batteryPercent={batteryPercent}
+              batteryCurrent={telemetry.batteryCurrent}
+              batteryPercent={telemetry.batteryPercent}
             />
           </div>
           <div className="text-center text-sm font-semibold text-gray-300 py-2 flex-shrink-0">DRONE - LOG</div>
