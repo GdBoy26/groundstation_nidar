@@ -305,17 +305,10 @@ class DualTelemetryWebSocketClient {
   }
 
   /**
-   * Get raw VTOL WebSocket instance (for KML upload)
+   * Get VTOL WebSocket instance (for KML upload, etc.)
    */
   public getVtolWsInstance(): WebSocket | null {
     return this.vtolWs;
-  }
-
-  /**
-   * Get raw Delivery WebSocket instance
-   */
-  public getDeliveryWsInstance(): WebSocket | null {
-    return this.deliveryWs;
   }
 }
 

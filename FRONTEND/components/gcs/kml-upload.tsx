@@ -163,15 +163,18 @@ export function KMLUpload({ getVtolWs, onUploadComplete }: KMLUploadProps) {
       setUploadStatus("Sending boundary to drone...")
       setUploadProgress(30)
 
-      // Send START command with data size only (RPI handles altitude/pattern)
-      const startCmd = `KML:START:${encodedData.length}`
+      // Send START command with: size, altitude (10m to match VTOL takeoff), pattern
+      // Format: KML:START:size:altitude:pattern
+      const altitude = 10  // Match VTOL takeoff altitude
+      const pattern = "LAWNMOWER"  // Default scan pattern
+      const startCmd = `KML:START:${encodedData.length}:${altitude}:${pattern}`
       vtolWs.send(startCmd)
 
       addLog({
         time: new Date().toLocaleTimeString(),
         source: "GROUND",
         level: "INFO",
-        message: `📤 Transmitting KML boundary (${compressedSize} bytes)...`
+        message: `📤 Transmitting KML boundary (${compressedSize} bytes, ${altitude}m altitude)...`
       })
 
       // Wait 200ms for drone to prepare

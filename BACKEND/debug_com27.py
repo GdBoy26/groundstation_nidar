@@ -2,7 +2,7 @@ import serial
 import time
 import binascii
 
-PORT = "COM27"
+PORT = "COM17"
 BAUD = 57600
 
 print(f"\n========================================")

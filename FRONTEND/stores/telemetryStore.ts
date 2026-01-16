@@ -15,7 +15,7 @@ type Person = {
   delivered: boolean;
 };
 
-type LogSource = "DRONE" | "VTOL" | "SYSTEM"|"GROUND";
+type LogSource = "DRONE" | "VTOL" | "SYSTEM" | "GROUND";
 type LogLevel = "INFO" | "WARN" | "ERROR";
 
 type LogEntry = {
@@ -62,6 +62,12 @@ type TelemetryState = {
   droneArmed: boolean;
   vtolFlying: boolean;
   droneFlying: boolean;
+
+  /* Hardware Connection Status */
+  vtolHardwareConnected: boolean;
+  droneHardwareConnected: boolean;
+  vtolLastTelemetryTime: number;
+  droneLastTelemetryTime: number;
 
   /* Raw person detection (from backend) */
   personDetected: 0 | 1;
@@ -119,6 +125,12 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
   vtolFlying: false,
   droneFlying: false,
 
+  /* Hardware Connection Status */
+  vtolHardwareConnected: false,
+  droneHardwareConnected: false,
+  vtolLastTelemetryTime: 0,
+  droneLastTelemetryTime: 0,
+
   /* Raw person detection */
   personDetected: 0,
   personLat: null,
@@ -146,8 +158,8 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
       ...state,
       ...p,
     })),
-  
-  
+
+
   /* Add persistent person */
   addPerson: (lat, lon) =>
     set((state) => ({

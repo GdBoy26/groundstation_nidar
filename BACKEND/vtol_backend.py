@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 NIDAR VTOL Scout Backend - Standalone
-Handles ONLY the VTOL drone on COM17 → WebSocket 8765
+Handles ONLY the VTOL drone on COM22 → WebSocket 8765
 """
 
 import sys
@@ -23,7 +23,7 @@ import re
 class VTOLBackend:
     """Standalone VTOL Scout backend"""
     
-    def __init__(self, port="COM17", baud=57600):
+    def __init__(self, port="COM22", baud=57600):
         self.port = port
         self.baud = baud
         self.serial = None
@@ -224,5 +224,5 @@ class VTOLBackend:
             self.serial.close()
 
 if __name__ == "__main__":
-    vtol = VTOLBackend(port="COM17", baud=57600)
+    vtol = VTOLBackend(port="COM22", baud=57600)
     vtol.start()

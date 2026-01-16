@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 NIDAR Delivery Drone Backend - Standalone
-Handles ONLY the Delivery drone on COM27 → WebSocket 8766
+Handles ONLY the Delivery drone on COM17 → WebSocket 8766
 Reverted to Text Protocol to match VTOL implementation
 """
 
@@ -22,7 +22,7 @@ from datetime import datetime
 class DeliveryBackend:
     """Standalone Delivery Drone backend - Text Protocol (Same as VTOL)"""
     
-    def __init__(self, port="COM27", baud=57600):
+    def __init__(self, port="COM17", baud=57600):
         self.port = port
         self.baud = baud
         self.serial = None
@@ -218,5 +218,5 @@ class DeliveryBackend:
             self.serial.close()
 
 if __name__ == "__main__":
-    delivery = DeliveryBackend(port="COM27", baud=57600)
+    delivery = DeliveryBackend(port="COM17", baud=57600)
     delivery.start()

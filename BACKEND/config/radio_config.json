@@ -3,14 +3,14 @@
   "frequency": "433MHz",
   "vtol": {
     "name": "VTOL Scout",
-    "port": "COM17",
+    "port": "COM19",
     "baud": 57600,
     "websocket_port": 8765,
     "description": "VTOL scout drone for KML boundary survey"
   },
   "delivery": {
     "name": "Delivery Drone",
-    "port": "COM27",
+    "port": "COM17",
     "baud": 57600,
     "websocket_port": 8766,
     "description": "Quadcopter for supply delivery to detected humans"
